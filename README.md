@@ -9,6 +9,7 @@ https://gdrive-cfworker.glitch.me/
 
 <h3>Usage</h3>
 After you create the cloudflare worker, take note of its url which looks like https://x.y.workers.dev:
+You can change this url on the cloudflare workers page, but make sure it's non-guessable. 
 
 The requests you can make to this url are:
 <ol>
