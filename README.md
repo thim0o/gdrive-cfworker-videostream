@@ -19,4 +19,4 @@ The requests you can make to this url are:
 
 
 
-Credits go to https://github.com/maple3142/GDIndex for some parts of the code
+Credits go to https://github.com/maple3142/GDIndex for large parts of the code
