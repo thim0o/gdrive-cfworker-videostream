@@ -1,7 +1,7 @@
 var authConfig = {
-    "client_id": "202264815644.apps.googleusercontent.com",
-    "client_secret": "X4Z3ca8xfWDb1Voo-F9a7ZxJ",
-    "refresh_token": "", // unique
+    "client_id": "202264815644.apps.googleusercontent.com",     // rclones client id
+    "client_secret": "X4Z3ca8xfWDb1Voo-F9a7ZxJ",                // rclones client secret
+    "refresh_token": "",                                        // unique
     "root": "allDrives"
 };
 
