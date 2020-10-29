@@ -14,11 +14,11 @@ After you create the cloudflare worker, take note of its url which looks like ht
 You can change this url on the cloudflare workers page, but make sure it's non-guessable. 
 
 The requests you can make to this url are:
-<ol>
-  <li>x.y.workers.dev/search/searchterm     --> this will return the search results on an html page </li>
-  <li>x.y.workers.dev/searchjson/searchterm --> this will return the search results in json format </li>
-  </ol>
 
 
+| GET request  | Response |
+| ------------- | ------------- |
+| x.y.workers.dev/search/*SomeSearchQuery*  | Search results on an html page  |
+| x.y.workers.dev/searchjson/*SomeSearchQuery*  | Search results in json format |
 
 Credits go to https://github.com/maple3142/GDIndex for large parts of the code
