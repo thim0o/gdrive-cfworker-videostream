@@ -1,5 +1,6 @@
 # gdrive-cfworker-videostream
 A cloudflare worker that provides direct links to files on google drive. 
+The worker can search on all your drives (including shared drives), and returns the search results in plaintext or in json format.
 
 
 
@@ -16,7 +17,6 @@ The requests you can make to this url are:
   <li>x.y.workers.dev/search/searchterm     --> this will return the search results on an html page </li>
   <li>x.y.workers.dev/searchjson/searchterm --> this will return the search results in json format </li>
   </ol>
-
 
 
 
