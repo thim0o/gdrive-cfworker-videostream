@@ -1,11 +1,12 @@
 var authConfig = {
-    "client_id": "202264815644.apps.googleusercontent.com",     // rclones client id
-    "client_secret": "X4Z3ca8xfWDb1Voo-F9a7ZxJ",                // rclones client secret
-    "refresh_token": "",                                        // unique
+    "client_id": "202264815644.apps.googleusercontent.com",
+    "client_secret": "X4Z3ca8xfWDb1Voo-F9a7ZxJ",
+    "refresh_token": "", // unique
     "root": "allDrives"
 };
 
-var gd;
+
+let gd;
 
 
 addEventListener('fetch', event => {
@@ -18,7 +19,7 @@ addEventListener('fetch', event => {
  * @param {Request} request
  */
 async function handleRequest(request) {
-    var linksHtml = `
+    let linksHtml = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,7 +37,7 @@ SEARCH_RESULT_PLACEHOLDER
     let url = new URL(request.url);
     let path = url.pathname;
     let action = url.searchParams.get('a');
-    console.log(action)
+
 
     if (path.substr(-1) === '/' || action != null) {
         return new Response(linksHtml, {status: 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
@@ -45,11 +46,16 @@ SEARCH_RESULT_PLACEHOLDER
 
         // If client requests a search
         if (path.startsWith("/search/")) {
-            let file = await gd.getFiles(path);
+            let file = await gd.getFilesCached(path);
             if (file !== undefined) {
                 file.forEach(function (f) {
                     let link = baseUrl + encodeURIComponent(f.name);
                     linksHtml = linksHtml.replace("SEARCH_RESULT_PLACEHOLDER", `<a href="${link}">${f.name} ${f.size}</a><br><br>\nSEARCH_RESULT_PLACEHOLDER`);
+                });
+            } else {
+                return new Response("Could not load the search results", {
+                    status: 500,
+                    headers: {'Content-Type': 'text/html; charset=utf-8'}
                 });
             }
 
@@ -58,8 +64,8 @@ SEARCH_RESULT_PLACEHOLDER
 
 
         } else if (path.startsWith("/searchjson/")) {
-            var response = [];
-            let file = await gd.getFiles(path);
+            const response = [];
+            let file = await gd.getFilesCached(path);
             if (file !== undefined) {
                 file.forEach(function (f) {
                     let link = baseUrl + encodeURIComponent(f.name);
@@ -73,7 +79,7 @@ SEARCH_RESULT_PLACEHOLDER
 
         } else {
             // If client requests a file
-            let file = await gd.getFiles(path);
+            let file = await gd.getFilesCached(path);
             file = file[0];
             console.log(file);
             let range = request.headers.get('Range');
@@ -88,11 +94,7 @@ class googleDrive {
         this.authConfig = authConfig;
         this.paths = [];
         this.files = [];
-        this.passwords = [];
         this.paths["/"] = authConfig.root;
-        if (authConfig.root_pass !== "") {
-            this.passwords["/"] = authConfig.root_pass;
-        }
         this.accessToken();
     }
 
@@ -103,15 +105,19 @@ class googleDrive {
         return await fetch(url, requestOption);
     }
 
-    async getFiles(path) {
+    async getFilesCached(path) {
         if (typeof this.files[path] == 'undefined') {
-            this.files[path] = await this._file(path);
+            let files = await this.getFiles(path)
+            if (files !== "FAILED") {
+                this.files[path] = files;
+            }
+
         }
         return this.files[path];
     }
 
 
-    async _file(path) {
+    async getFiles(path, maxRetries = 3) {
         let arr = path.split('/');
         let name = arr.pop();
         name = decodeURIComponent(name).replace(/'/g, "\\'");
@@ -128,7 +134,6 @@ class googleDrive {
                 'pageSize': 1000
             };
 
-
         } else if (authConfig.root !== "") {
             params = {
                 'spaces': 'drive',
@@ -140,15 +145,30 @@ class googleDrive {
         }
 
         params.q = `fullText contains '${name}' and (mimeType contains 'application/octet-stream' or mimeType contains 'video/') and (name contains 'mkv' or name contains 'mp4' or name contains 'avi') `;
-        params.fields = "files(id, name, mimeType, size, driveId)";
+        params.fields = "files(id, name, size, driveId)";
 
         url += '?' + this.enQuery(params);
         let requestOption = await this.requestOption();
+
         let response = await fetch(url, requestOption);
+
+        let retries = 0
+        while (!response.ok && response.status != 401 && retries < maxRetries) {
+            retries += 1
+            await sleep(1000 * 2 ** retries)
+            response = await fetch(url, requestOption);
+            console.log(`Retry nr. ${retries} result: ${response.ok}`)
+        }
+
         let obj = await response.json();
         console.log(obj);
         console.log(obj.files);
-        return obj.files;
+
+        if (response.ok) {
+            return obj.files;
+        } else {
+            return "FAILED"
+        }
     }
 
 
@@ -204,24 +224,9 @@ class googleDrive {
         return ret.join('&');
     }
 
-    sleep(ms) {
-        return new Promise(function (resolve, reject) {
-            let i = 0;
-            setTimeout(function () {
-                console.log('sleep' + ms);
-                i++;
-                if (i >= 2) reject(new Error('i>=2'));
-                else resolve(i);
-            }, ms);
-        })
-    }
+
 }
 
-String
-    .prototype
-    .trim = function (char) {
-    if (char) {
-        return this.replace(new RegExp('^\\' + char + '+|\\' + char + '+$', 'g'), '');
-    }
-    return this.replace(/^\s+|\s+$/g, '');
-};
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
