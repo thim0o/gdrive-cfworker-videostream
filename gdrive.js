@@ -1,7 +1,7 @@
 var authConfig = {
-    "client_id": "202264815644.apps.googleusercontent.com",
-    "client_secret": "X4Z3ca8xfWDb1Voo-F9a7ZxJ",
-    "refresh_token": "", // unique
+    "client_id": "202264815644.apps.googleusercontent.com", // RClone client_id
+    "client_secret": "X4Z3ca8xfWDb1Voo-F9a7ZxJ",            // RClone client_secret
+    "refresh_token": "",                                    // unique
     "root": "allDrives"
 };
 
@@ -230,3 +230,6 @@ class googleDrive {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+
+
