@@ -98,11 +98,24 @@ class googleDrive {
         this.accessToken();
     }
 
+    async fetchAndRetryOnError(url, requestOption, maxRetries = 3) {
+        let response = await fetch(url, requestOption);
+        let retries = 0
+        while (!response.ok && response.status != 400 && retries < maxRetries) {
+            console.log(response.status);
+            await sleep(1000 + 1000 * 2 ** retries)
+            retries += 1
+            response = await fetch(url, requestOption);
+            console.log(`Retry nr. ${retries} result: ${response.ok}`)
+        }
+        return response
+    }
+
     async down(id, range = '') {
         let url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
         let requestOption = await this.requestOption();
         requestOption.headers['Range'] = range;
-        return await fetch(url, requestOption);
+        return await this.fetchAndRetryOnError(url, requestOption);
     }
 
     async getFilesCached(path) {
@@ -116,16 +129,8 @@ class googleDrive {
         return this.files[path];
     }
 
-
-    async getFiles(path, maxRetries = 3) {
-        let arr = path.split('/');
-        let name = arr.pop();
-        name = decodeURIComponent(name).replace(/'/g, "\\'");
-        console.log(name);
-
-        let url = 'https://www.googleapis.com/drive/v3/files';
+    getSearchScopeParams() {
         let params = {'spaces': 'drive'};
-
         if (authConfig.root === "allDrives") {
             params = {
                 'corpora': 'allDrives',
@@ -143,22 +148,24 @@ class googleDrive {
                 'driveId': authConfig.root
             };
         }
+        return params
+    }
+
+    async getFiles(path) {
+        let arr = path.split('/');
+        let name = arr.pop();
+        name = decodeURIComponent(name).replace(/'/g, "\\'");
+        console.log(name);
+
+        let url = 'https://www.googleapis.com/drive/v3/files';
+        let params = this.getSearchScopeParams()
 
         params.q = `fullText contains '${name}' and (mimeType contains 'application/octet-stream' or mimeType contains 'video/') and (name contains 'mkv' or name contains 'mp4' or name contains 'avi') `;
         params.fields = "files(id, name, size, driveId)";
 
         url += '?' + this.enQuery(params);
         let requestOption = await this.requestOption();
-
-        let response = await fetch(url, requestOption);
-
-        let retries = 0
-        while (!response.ok && response.status != 401 && retries < maxRetries) {
-            retries += 1
-            await sleep(1000 * 2 ** retries)
-            response = await fetch(url, requestOption);
-            console.log(`Retry nr. ${retries} result: ${response.ok}`)
-        }
+        let response = await this.fetchAndRetryOnError(url, requestOption);
 
         let obj = await response.json();
         console.log(obj);
@@ -203,7 +210,7 @@ class googleDrive {
             'body': this.enQuery(post_data)
         };
 
-        const response = await fetch(url, requestOption);
+        const response = await this.fetchAndRetryOnError(url, requestOption);
         return await response.json();
     }
 
@@ -211,7 +218,6 @@ class googleDrive {
     async requestOption(headers = {}, method = 'GET') {
         const accessToken = await this.accessToken();
         headers['authorization'] = 'Bearer ' + accessToken;
-
         return {'method': method, 'headers': headers};
     }
 
@@ -223,13 +229,8 @@ class googleDrive {
         ret.push(encodeURIComponent("acknowledgeAbuse") + '=' + encodeURIComponent("true"));
         return ret.join('&');
     }
-
-
 }
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-
-
