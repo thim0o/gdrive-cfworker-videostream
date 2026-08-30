@@ -1,24 +1,34 @@
-var authConfig = {
-    "client_id": "202264815644.apps.googleusercontent.com", // RClone client_id
-    "client_secret": "X4Z3ca8xfWDb1Voo-F9a7ZxJ",            // RClone client_secret
-    "refresh_token": "",                                    // unique
-    "root": "allDrives"
-};
-
-
 let gd;
 
-
-addEventListener('fetch', event => {
-    event.respondWith(handleRequest(event.request));
-});
+export default {
+    async fetch(request, env) {
+        return handleRequest(request, env);
+    }
+};
 
 
 /**
  * Fetch and log a request
  * @param {Request} request
  */
-async function handleRequest(request) {
+async function handleRequest(request, env) {
+    const accessToken = env.WORKER_ACCESS_TOKEN;
+    const cookie = request.headers.get('Cookie') || '';
+    const hasCookie = cookie.split(';').some(value => value.trim() === `worker_access=${accessToken}`);
+    if (!accessToken || (request.headers.get('Authorization') !== `Bearer ${accessToken}` && !hasCookie)) {
+        return new Response('Unauthorized', {status: 401});
+    }
+
+    const authConfig = {
+        "client_id": env.GOOGLE_CLIENT_ID,
+        "client_secret": env.GOOGLE_CLIENT_SECRET,
+        "refresh_token": env.GOOGLE_REFRESH_TOKEN,
+        "root": env.GOOGLE_DRIVE_ROOT || "allDrives"
+    };
+    if (!authConfig.client_id || !authConfig.client_secret || !authConfig.refresh_token) {
+        return new Response('Worker is not configured', {status: 503});
+    }
+
     let linksHtml = `
 <!DOCTYPE html>
 <html lang="en">
@@ -50,7 +60,7 @@ SEARCH_RESULT_PLACEHOLDER
             if (file !== undefined) {
                 file.forEach(function (f) {
                     let link = baseUrl + encodeURIComponent(f.name);
-                    linksHtml = linksHtml.replace("SEARCH_RESULT_PLACEHOLDER", `<a href="${link}">${f.name} ${f.size}</a><br><br>\nSEARCH_RESULT_PLACEHOLDER`);
+                    linksHtml = linksHtml.replace("SEARCH_RESULT_PLACEHOLDER", `<a href="${link}">${escapeHtml(f.name)} ${escapeHtml(f.size)}</a><br><br>\nSEARCH_RESULT_PLACEHOLDER`);
                 });
             } else {
                 return new Response("Could not load the search results", {
@@ -60,7 +70,10 @@ SEARCH_RESULT_PLACEHOLDER
             }
 
             linksHtml = linksHtml.replace("SEARCH_RESULT_PLACEHOLDER", "");
-            return new Response(linksHtml, {status: 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
+            return new Response(linksHtml, {status: 200, headers: {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Set-Cookie': `worker_access=${accessToken}; HttpOnly; Secure; SameSite=Strict; Path=/`
+            }});
 
 
         } else if (path.startsWith("/searchjson/")) {
@@ -131,7 +144,7 @@ class googleDrive {
 
     getSearchScopeParams() {
         let params = {'spaces': 'drive'};
-        if (authConfig.root === "allDrives") {
+        if (this.authConfig.root === "allDrives") {
             params = {
                 'corpora': 'allDrives',
                 'includeItemsFromAllDrives': true,
@@ -139,13 +152,13 @@ class googleDrive {
                 'pageSize': 1000
             };
 
-        } else if (authConfig.root !== "") {
+        } else if (this.authConfig.root !== "") {
             params = {
                 'spaces': 'drive',
                 'corpora': 'drive',
                 'includeItemsFromAllDrives': true,
                 'supportsAllDrives': true,
-                'driveId': authConfig.root
+                'driveId': this.authConfig.root
             };
         }
         return params
@@ -154,7 +167,7 @@ class googleDrive {
     async getFiles(path) {
         let arr = path.split('/');
         let name = arr.pop();
-        name = decodeURIComponent(name).replace(/'/g, "\\'");
+        name = decodeURIComponent(name).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
         console.log(name);
 
         let url = 'https://www.googleapis.com/drive/v3/files';
@@ -233,4 +246,13 @@ class googleDrive {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
