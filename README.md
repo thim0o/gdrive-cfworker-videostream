@@ -6,6 +6,17 @@ The worker can search on all your drives (including shared drives), and returns 
 
 
 <h3>Setup</h3>
+Configure these Cloudflare Worker secrets/variables before deploying:
+
+* `WORKER_ACCESS_TOKEN` - required bearer token for every request
+* `GOOGLE_CLIENT_ID`
+* `GOOGLE_CLIENT_SECRET`
+* `GOOGLE_REFRESH_TOKEN`
+* `GOOGLE_DRIVE_ROOT` (optional, defaults to `allDrives`)
+
+The Google OAuth client secret and refresh token must not be committed to this repository.
+Send `Authorization: Bearer <WORKER_ACCESS_TOKEN>` with the first request. The worker sets a secure, HTTP-only cookie so links in the HTML response continue to work in a browser.
+
 <b>Follow the instructions on this page for an easy setup</b>
 https://gdrive-cfworker.glitch.me/
 
